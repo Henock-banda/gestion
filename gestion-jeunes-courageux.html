@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="fr"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f2a43">
+<title>Gestion · Les Jeunes Courageux</title>
+<style>
+:root{--navy:#0f2a43;--gold:#c8870a;--bg:#f3f5f8;--card:#fff;--ink:#14263a;--mut:#667b8f;--line:#dde4eb;--ok:#1b8a52;--ko:#c0392b;--r:12px;--Shop:#1e7a5a;--Bureautique:#2457b3;--Cabine:#a8561e}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;padding-bottom:74px}
+h2{font-size:1.2rem;margin:0 0 8px}h3{font-size:.95rem;color:var(--mut);margin:0 0 6px}
+header{background:var(--navy);color:#fff;padding:10px 14px;display:flex;align-items:center;gap:10px;position:sticky;top:0;z-index:5;border-bottom:3px solid var(--gold)}
+header .t{flex:1;min-width:0}header b{display:block;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header small{opacity:.8;font-size:.76rem}
+.lg{width:42px;height:42px;border-radius:50%;object-fit:cover;background:#fff;flex:none;display:grid;place-items:center;color:var(--navy);font-weight:800}
+.lg.big{width:84px;height:84px;font-size:1.6rem;margin:0 auto 10px}
+main{max-width:780px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:14px;margin-bottom:12px;box-shadow:0 1px 2px rgba(15,42,67,.06)}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:11px}.stat span{display:block;color:var(--mut);font-size:.8rem}.stat b{font-size:1.15rem}
+.stat.hero{grid-column:1/-1;background:var(--navy);color:#fff;border:0}.stat.hero span{color:#b9c7d6}.stat.hero b{font-size:1.7rem}
+label{display:block;font-size:.84rem;color:var(--mut);margin:10px 0 4px}
+input,select{width:100%;font:inherit;padding:11px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--ink)}
+button{font:inherit;border:0;border-radius:9px;padding:11px 16px;background:var(--navy);color:#fff;font-weight:600;cursor:pointer}
+button.gold{background:var(--gold)}button.sec{background:transparent;color:var(--navy);border:1px solid var(--navy)}button.del{background:var(--ko)}button.sm{padding:5px 10px;font-size:.82rem}button.w{width:100%}
+:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#fff;border-top:1px solid var(--line);display:flex;z-index:6}
+nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:12px 2px;font-size:.76rem}nav button.on{color:var(--navy);box-shadow:inset 0 3px var(--gold)}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;padding-bottom:2px}.chip{background:#e4e9ef;color:var(--ink);border-radius:99px;padding:7px 15px;font-size:.86rem;white-space:nowrap}.chip.on{background:var(--navy);color:#fff}
+.row{display:flex;justify-content:space-between;gap:10px;padding:10px 0 10px 10px;border-bottom:1px solid var(--line);border-left:4px solid var(--line)}.row:last-child{border-bottom:0}
+.row small{color:var(--mut);display:block}.r{text-align:right;white-space:nowrap}.pos{color:var(--ok)}.neg{color:var(--ko)}
+.tag{display:inline-block;font-size:.7rem;padding:1px 8px;border-radius:99px;color:#fff;vertical-align:middle}
+.calc{background:var(--bg);border-radius:9px;padding:10px;margin-top:10px;line-height:1.7}
+.login{max-width:380px;margin:9vh auto;padding:0 14px;text-align:center}.login .card{text-align:left}
+.empty{color:var(--mut);padding:8px 0}.dot{font-size:.74rem}
+</style></head><body>
+<div id="app"><p style="text-align:center;margin-top:30vh;color:#667b8f">Connexion à la base…</p></div>
+<script type="module">
+import {initializeApp} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-app.js";
+import {initializeFirestore,persistentLocalCache,persistentMultipleTabManager,collection,doc,setDoc,deleteDoc,onSnapshot} from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
+const firebaseConfig={apiKey:"AIzaSyDpHVzHC197mNz2FSLbwftvB4GGMVg8mw4",authDomain:"les-jeunes-courageux-bisness.firebaseapp.com",projectId:"les-jeunes-courageux-bisness",storageBucket:"les-jeunes-courageux-bisness.firebasestorage.app",messagingSenderId:"97883784873",appId:"1:97883784873:web:de68331be473246a944bb8"};
+const fdb=initializeFirestore(initializeApp(firebaseConfig),{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
+
+const $=s=>document.querySelector(s),ENT=['Shop','Bureautique','Cabine'];
+const S={users:[],clients:[],ops:[],deps:[],pays:[],cfg:{nom:'Les Jeunes Courageux',devise:'FC',logo:''}};
+let sid=localStorage.getItem('sid')||'',tab='jour',day=today(),E='Toutes',ready=false,pending=false,flags={};
+function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const h=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const hash=s=>{let x=5381;for(const c of s)x=(x*33^c.charCodeAt(0))>>>0;return x.toString(36)};
+const n=v=>Math.round(parseFloat(v)||0),money=v=>new Intl.NumberFormat('fr-FR').format(Math.round(v))+' '+S.cfg.devise;
+const user=id=>(S.users.find(u=>u.id===id)||{nom:'?'}).nom,cli=id=>(S.clients.find(c=>c.id===id)||{nom:'Client de passage'}).nom;
+const hr=t=>new Date(t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+const mt=o=>o.qte*o.pu,co=o=>o.qte*o.cu,me=()=>S.users.find(u=>u.id===sid),own=()=>me()&&me().role==='patron';
+const put=(c,o)=>setDoc(doc(fdb,c,o.id),o).catch(e=>alert('Erreur d’enregistrement : '+e.message));
+const rm=(c,id)=>deleteDoc(doc(fdb,c,id)).catch(e=>alert('Erreur : '+e.message));
+const ini=()=>S.cfg.nom.split(/\s+/).map(w=>w[0]).join('').slice(0,3).toUpperCase();
+const logo=cl=>S.cfg.logo?`<img class="lg ${cl}" src="${S.cfg.logo}" alt="Logo">`:`<div class="lg ${cl}">${h(ini())}</div>`;
+const tg=e=>`<span class="tag" style="background:var(--${e})">${e}</span>`;
+
+['users','clients','ops','deps','pays'].forEach(c=>onSnapshot(collection(fdb,c),s=>{S[c]=s.docs.map(d=>d.data());if(c==='users'&&!s.metadata.fromCache)ready=true;refresh()},()=>{ready=true;refresh()}));
+onSnapshot(doc(fdb,'cfg','main'),s=>{if(s.exists())S.cfg={...S.cfg,...s.data()};refresh()});
+setTimeout(()=>{ready=true;refresh()},4000);
+addEventListener('online',refresh);addEventListener('offline',refresh);
+function refresh(){if(['INPUT','SELECT'].includes(document.activeElement?.tagName)&&me()){pending=true;return}render()}
+
+function render(){pending=false;
+  if(!ready)return;
+  if(!S.users.length)return setup();
+  if(!me())return loginV();
+  const T=[['jour','Aujourd’hui'],['op','Opération'],['clients','Clients'],['dep','Dépenses']];if(own())T.push(['reg','Réglages']);
+  $('#app').innerHTML=`<header>${logo('')}<div class="t"><b>${h(S.cfg.nom)}</b><small>${h(me().nom)} · ${me().role} · <span class="dot">${navigator.onLine?'● en ligne':'● hors ligne, synchro au retour du réseau'}</span></small></div><button class="sec sm" style="color:#fff;border-color:#fff" data-a="out">Quitter</button></header><main id="m"></main>
+  <nav>${T.map(t=>`<button class="${tab===t[0]?'on':''}" data-a="tab" data-p="${t[0]}">${t[1]}</button>`).join('')}</nav>`;
+  ({jour:vJour,op:vOp,clients:vCli,dep:vDep,reg:vReg}[tab]||vJour)()}
+function setup(){$('#app').innerHTML=`<div class="login">${logo('big')}<div class="card"><h2>Bienvenue</h2><p>Créez le compte du patron. Il voit tout et ajoute les ouvriers.</p>
+  <label>Nom du commerce</label><input id="cn" value="${h(S.cfg.nom)}"><label>Devise (FC, FCFA, $…)</label><input id="dv" value="${h(S.cfg.devise)}">
+  <label>Votre nom</label><input id="un"><label>Code PIN (4 chiffres minimum)</label><input id="up" type="password" inputmode="numeric">
+  <p><button class="gold w" data-a="setup">Créer et commencer</button></p></div></div>`}
+function loginV(){$('#app').innerHTML=`<div class="login">${logo('big')}<h2 style="color:var(--navy)">${h(S.cfg.nom)}</h2><div class="card"><label style="margin-top:0">Utilisateur</label><select id="lu">${S.users.map(u=>`<option value="${u.id}">${h(u.nom)}</option>`).join('')}</select>
+  <label>Code PIN</label><input id="lp" type="password" inputmode="numeric"><p><button class="gold w" data-a="login">Se connecter</button></p></div></div>`}
+
+function scope(d,e){let o=S.ops.filter(x=>x.date===d&&(e==='Toutes'||x.ent===e)),p=S.deps.filter(x=>x.date===d&&(e==='Toutes'||x.ent===e));if(!own()){o=o.filter(x=>x.user===sid);p=p.filter(x=>x.user===sid)}return{o,p}}
+function chips(){return`<div class="chips">${['Toutes',...ENT].map(e=>`<button class="chip ${E===e?'on':''}" data-a="ent" data-p="${e}">${e}</button>`).join('')}</div>`}
+function vJour(){
+  const{o,p}=scope(day,E),rec=o.reduce((s,x)=>s+mt(x),0),cout=o.reduce((s,x)=>s+co(x),0),dp=p.reduce((s,x)=>s+x.montant,0),cr=o.reduce((s,x)=>s+mt(x)-x.paye,0);
+  const enc=o.reduce((s,x)=>s+x.paye,0)+(own()&&E==='Toutes'?S.pays.filter(x=>x.date===day).reduce((s,x)=>s+x.montant,0):0);
+  let t=`<div class="card"><label style="margin-top:0">Jour affiché</label><input type="date" value="${day}" data-c="day"></div>${chips()}
+  <div class="grid"><div class="stat hero"><span>Ventes du jour · ${E}</span><b>${money(rec)}</b></div><div class="stat"><span>Argent encaissé</span><b>${money(enc)}</b></div><div class="stat"><span>Reste à payer</span><b class="${cr>0?'neg':''}">${money(cr)}</b></div>
+  <div class="stat"><span>Coût des opérations</span><b>${money(cout)}</b></div><div class="stat"><span>Dépenses</span><b>${money(dp)}</b></div>`;
+  if(own())t+=`<div class="stat hero"><span>Bénéfice net</span><b style="color:${rec-cout-dp>=0?'#6fe3a0':'#ff9d92'}">${money(rec-cout-dp)}</b></div>`;
+  t+=`</div>`;
+  if(own()&&E==='Toutes')t+=`<div class="card"><h3>Par entreprise</h3>${ENT.map(e=>{const l=S.ops.filter(x=>x.date===day&&x.ent===e);return`<div class="row" style="border-left-color:var(--${e})"><span>${e} <small>${l.length} opération(s)</small></span><b>${money(l.reduce((s,x)=>s+mt(x),0))}</b></div>`}).join('')}</div>`;
+  if(own())t+=`<div class="card"><h3>Par ouvrier (traçabilité)</h3>${S.users.map(u=>{const l=S.ops.filter(x=>x.date===day&&x.user===u.id&&(E==='Toutes'||x.ent===E));return l.length?`<div class="row"><span>${h(u.nom)} <small>${l.length} opération(s)</small></span><b>${money(l.reduce((s,x)=>s+mt(x),0))}</b></div>`:''}).join('')||'<div class="empty">Aucune opération.</div>'}</div>`;
+  t+=`<div class="card"><h3>Opérations</h3>${o.length?o.slice().sort((a,b)=>b.t-a.t).map(x=>`<div class="row" style="border-left-color:var(--${x.ent})"><div><b>${h(x.desc)}</b> ${tg(x.ent)}<small>${hr(x.t)} · ${h(cli(x.client))} · par ${h(user(x.user))}${x.paye<mt(x)?` · <span class="neg">reste ${money(mt(x)-x.paye)}</span>`:''}</small></div>
+  <div class="r"><b>${money(mt(x))}</b>${own()?`<small class="${mt(x)>=co(x)?'pos':'neg'}">gain ${money(mt(x)-co(x))}</small><button class="del sm" data-a="delop" data-p="${x.id}">Suppr.</button>`:''}</div></div>`).join(''):'<div class="empty">Aucune opération. Ouvrez « Opération » pour en ajouter.</div>'}</div>`;
+  $('#m').innerHTML=t}
+function vOp(){$('#m').innerHTML=`<div class="card opf"><h2>Nouvelle opération</h2><label>Entreprise</label><select id="oe">${ENT.map(e=>`<option ${e===E?'selected':''}>${e}</option>`).join('')}</select>
+  <label>Description (ex: photocopie, recharge, vente)</label><input id="od"><label>Client</label><select id="oc"><option value="">Client de passage</option>${S.clients.map(c=>`<option value="${c.id}">${h(c.nom)}</option>`).join('')}</select>
+  <div class="grid" style="margin:0"><div><label>Quantité</label><input id="oq" type="number" inputmode="decimal" value="1"></div><div><label>Prix de vente unitaire</label><input id="op" type="number" inputmode="decimal"></div>
+  <div><label>Coût unitaire</label><input id="ou" type="number" inputmode="decimal" value="0"></div><div><label>Montant payé</label><input id="oy" type="number" inputmode="decimal"></div></div>
+  <div class="calc" id="ocl"></div><p><button class="gold w" data-a="addop">Enregistrer l’opération</button></p></div>`;calc()}
+function calc(){const q=n($('#oq').value),p=n($('#op').value),u=n($('#ou').value),y=$('#oy');if(!y.dataset.m)y.value=q*p||'';const m=q*p,c=q*u,pay=n(y.value);
+  $('#ocl').innerHTML=`Montant : <b>${money(m)}</b><br>Coût : <b>${money(c)}</b><br>Gain : <b class="${m>=c?'pos':'neg'}">${money(m-c)}</b><br>Reste à payer : <b class="${m>pay?'neg':''}">${money(Math.max(0,m-pay))}</b>`}
+const debt=id=>S.ops.filter(o=>o.client===id).reduce((s,o)=>s+mt(o)-o.paye,0)-S.pays.filter(p=>p.client===id).reduce((s,p)=>s+p.montant,0);
+function vCli(){$('#m').innerHTML=`<div class="card"><h2>Nouveau client</h2><label>Nom</label><input id="cn1"><label>Téléphone</label><input id="ct" inputmode="tel"><p><button class="w" data-a="addcli">Ajouter le client</button></p></div>
+  <div class="card"><h3>Mes clients</h3>${S.clients.length?S.clients.map(c=>{const d=debt(c.id),k=S.ops.filter(o=>o.client===c.id);return`<div class="row"><div><b>${h(c.nom)}</b><small>${h(c.tel||'')} · ${k.length} opération(s) · total ${money(k.reduce((s,o)=>s+mt(o),0))}</small></div><div class="r">${d>0?`<b class="neg">doit ${money(d)}</b><br><button class="gold sm" data-a="paycli" data-p="${c.id}">Encaisser</button>`:'<span class="pos">à jour</span>'}</div></div>`}).join(''):'<div class="empty">Aucun client.</div>'}</div>`}
+function vDep(){const l=S.deps.filter(d=>own()||d.user===sid).sort((a,b)=>b.t-a.t).slice(0,40);
+  $('#m').innerHTML=`<div class="card"><h2>Nouvelle dépense</h2><label>Entreprise</label><select id="de">${ENT.map(e=>`<option ${e===E?'selected':''}>${e}</option>`).join('')}</select><label>Motif (loyer, électricité, transport…)</label><input id="dl"><label>Montant</label><input id="dm" type="number" inputmode="decimal">
+  <p><button class="gold w" data-a="adddep">Enregistrer la dépense</button></p></div><div class="card"><h3>Dernières dépenses</h3>${l.length?l.map(d=>`<div class="row" style="border-left-color:var(--${d.ent})"><div><b>${h(d.lib)}</b> ${tg(d.ent)}<small>${d.date} ${hr(d.t)} · par ${h(user(d.user))}</small></div><div class="r"><b class="neg">${money(d.montant)}</b>${own()?`<br><button class="del sm" data-a="deldep" data-p="${d.id}">Suppr.</button>`:''}</div></div>`).join(''):'<div class="empty">Aucune dépense.</div>'}</div>`}
+function vReg(){$('#m').innerHTML=`<div class="card"><h2>Mon commerce</h2><label style="margin-top:0">Logo (image)</label><input type="file" accept="image/*" data-c="logo"><label>Nom</label><input id="rn" value="${h(S.cfg.nom)}"><label>Devise</label><input id="rd" value="${h(S.cfg.devise)}"><p><button class="w" data-a="savecfg">Enregistrer</button></p></div>
+  <div class="card"><h2>Équipe</h2>${S.users.map(u=>`<div class="row"><span>${h(u.nom)} <small>${u.role}</small></span>${u.role==='ouvrier'?`<span><button class="sec sm" data-a="pin" data-p="${u.id}">Nouveau PIN</button> <button class="del sm" data-a="deluser" data-p="${u.id}">Retirer</button></span>`:''}</div>`).join('')}
+  <label>Nouvel ouvrier : nom</label><input id="wn"><label>PIN (4 chiffres minimum)</label><input id="wp" type="password" inputmode="numeric"><p><button class="w" data-a="adduser">Ajouter l’ouvrier</button></p></div>
+  <div class="card"><h2>Rapport</h2><p>Les données sont sauvegardées en ligne automatiquement.</p><button class="sec w" data-a="csv">Exporter toutes les opérations (Excel/CSV)</button></div>`}
+
+const A={
+ setup(){const nom=$('#un').value.trim(),p=$('#up').value;if(!nom||p.length<4)return alert('Entrez votre nom et un PIN de 4 chiffres minimum.');
+  const u={id:uid(),nom,pin:hash(p),role:'patron'};put('cfg',{id:'main',nom:$('#cn').value.trim()||S.cfg.nom,devise:$('#dv').value.trim()||'FC',logo:S.cfg.logo});put('users',u);sid=u.id;localStorage.setItem('sid',sid)},
+ login(){const u=S.users.find(x=>x.id===$('#lu').value);if(u&&u.pin===hash($('#lp').value)){sid=u.id;localStorage.setItem('sid',sid);tab='jour';day=today();render()}else alert('PIN incorrect.')},
+ out(){sid='';localStorage.removeItem('sid');render()},tab(p){tab=p;render()},ent(p){E=p;render()},
+ addop(){const o={id:uid(),t:Date.now(),date:today(),user:sid,ent:$('#oe').value,desc:$('#od').value.trim(),client:$('#oc').value,qte:n($('#oq').value),pu:n($('#op').value),cu:n($('#ou').value),paye:n($('#oy').value)};
+  if(!o.desc||o.qte<=0||o.pu<=0)return alert('Entrez une description, une quantité et un prix.');if(o.paye>mt(o))o.paye=mt(o);
+  if(o.paye<mt(o)&&!o.client&&!confirm('Paiement incomplet pour un client de passage. Enregistrer quand même ?'))return;put('ops',o);day=today();E=o.ent;tab='jour';render()},
+ delop(id){if(confirm('Supprimer cette opération ?'))rm('ops',id)},
+ addcli(){const nom=$('#cn1').value.trim();if(!nom)return alert('Entrez le nom du client.');put('clients',{id:uid(),nom,tel:$('#ct').value.trim()});render()},
+ paycli(id){const v=n(prompt('Montant reçu ('+S.cfg.devise+') :'));if(v<=0)return;put('pays',{id:uid(),t:Date.now(),date:today(),client:id,montant:Math.min(v,Math.max(debt(id),0)),user:sid})},
+ adddep(){const lib=$('#dl').value.trim(),m=n($('#dm').value);if(!lib||m<=0)return alert('Entrez un motif et un montant.');put('deps',{id:uid(),t:Date.now(),date:today(),user:sid,ent:$('#de').value,lib,montant:m});render()},
+ deldep(id){if(confirm('Supprimer cette dépense ?'))rm('deps',id)},
+ savecfg(){put('cfg',{id:'main',...S.cfg,nom:$('#rn').value.trim()||S.cfg.nom,devise:$('#rd').value.trim()||'FC'});alert('Enregistré.')},
+ adduser(){const nom=$('#wn').value.trim(),p=$('#wp').value;if(!nom||p.length<4)return alert('Entrez un nom et un PIN de 4 chiffres minimum.');put('users',{id:uid(),nom,pin:hash(p),role:'ouvrier'});render()},
+ pin(id){const p=prompt('Nouveau PIN (4 chiffres minimum) :');if(p&&p.length>=4){put('users',{...S.users.find(u=>u.id===id),pin:hash(p)});alert('PIN changé.')}},
+ deluser(id){if(confirm('Retirer cet ouvrier ? Ses opérations restent enregistrées.'))rm('users',id)},
+ csv(){const q=s=>'"'+String(s).replace(/"/g,'""')+'"',r=[['Date','Heure','Entreprise','Description','Client','Ouvrier','Quantité','Prix unitaire','Montant','Coût','Gain','Payé']];
+  S.ops.slice().sort((a,b)=>a.t-b.t).forEach(o=>r.push([o.date,hr(o.t),o.ent,o.desc,cli(o.client),user(o.user),o.qte,o.pu,mt(o),co(o),mt(o)-co(o),o.paye]));
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+r.map(x=>x.map(q).join(';')).join('\n')],{type:'text/csv'}));a.download='operations-'+today()+'.csv';a.click()}
+};
+const C={day(el){day=el.value||today();render()},
+ logo(el){const f=el.files[0];if(!f)return;const im=new Image();im.onload=()=>{const k=Math.min(1,256/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);put('cfg',{id:'main',...S.cfg,logo:c.toDataURL('image/jpeg',.85)});alert('Logo enregistré.')};im.src=URL.createObjectURL(f)}};
+document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(b)A[b.dataset.a](b.dataset.p)});
+document.addEventListener('change',e=>{const f=e.target.dataset.c;if(f)C[f](e.target)});
+document.addEventListener('input',e=>{if(e.target.id==='oy')e.target.dataset.m=1;if(e.target.closest('.opf'))calc()});
+document.addEventListener('focusout',()=>{setTimeout(()=>{if(pending&&!['INPUT','SELECT'].includes(document.activeElement?.tagName))render()},300)});
+</script></body></html>

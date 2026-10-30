@@ -33,7 +33,7 @@ nav button{flex:1;background:none;color:var(--mut);border-radius:0;padding:12px 
 .calc{background:var(--bg);border-radius:9px;padding:10px;margin-top:10px;line-height:1.7}
 .login{max-width:380px;margin:9vh auto;padding:0 14px;text-align:center}.login .card{text-align:left}
 .empty{color:var(--mut);padding:8px 0}.lg.s{width:34px;height:34px;font-size:.78rem}nav button{font-size:.72rem}.row .lg{flex:none}.dot{font-size:.74rem}
-.wk{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:400}
+.sgi{max-width:100%;height:72px;border:1px solid var(--line);border-radius:8px;background:#fff;display:block;margin:4px 0 10px}.wk{display:flex;align-items:center;gap:12px;width:100%;text-align:left;background:#fff;color:var(--ink);border:1px solid var(--line);border-left:4px solid var(--line);border-radius:10px;padding:10px 12px;margin:0 0 8px;font-weight:400}
 .wk:hover{background:#f7f9fb}.wk.on{border-color:var(--navy);border-left-color:var(--gold);background:#eef3f8;box-shadow:0 1px 4px rgba(15,42,67,.12)}
 .wk .wi{flex:1;min-width:0}.wk .wi b{display:block;font-size:.95rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.wk .wi small{display:block;color:var(--mut);font-size:.76rem;line-height:1.35}
 .wk .wr{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex:none;max-width:46%}
@@ -52,7 +52,8 @@ const firebaseConfig={apiKey:"AIzaSyDpHVzHC197mNz2FSLbwftvB4GGMVg8mw4",authDomai
 const fdb=initializeFirestore(initializeApp(firebaseConfig),{localCache:persistentLocalCache({tabManager:persistentMultipleTabManager()})});
 
 const $=s=>document.querySelector(s),ENT=['Shop','Bureautique','Cabine'];
-const S={users:[],clients:[],ops:[],deps:[],pays:[],msgs:[],sal:[],insc:[],fact:[],bilans:[],cfg:{site:'',nom:'Les Jeunes Courageux',devise:'FC',logo:'',app:'Téléphone, Pile, Ordinateur, Radio, Power, Autre'}};
+const PEND={};
+const S={users:[],clients:[],ops:[],deps:[],pays:[],msgs:[],sal:[],insc:[],fact:[],bilans:[],pubs:[],cfg:{site:'',nom:'Les Jeunes Courageux',devise:'FC',logo:'',app:'Téléphone, Pile, Ordinateur, Radio, Power, Autre'}};
 let sid=localStorage.getItem('sid')||'',tab='jour',day=today(),E='Toutes',ready=false,pending=false,flags={};
 function today(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
 const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
@@ -68,7 +69,7 @@ const DEF='data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAYEBAUEBAYFBQ
 const logo=cl=>`<img class="lg ${cl}" src="${S.cfg.logo||DEF}" alt="Logo">`;
 const tg=e=>`<span class="tag" style="background:var(--${e})">${e}</span>`;
 
-['users','clients','ops','deps','pays','msgs','sal','insc','fact','bilans'].forEach(c=>onSnapshot(collection(fdb,c),s=>{S[c]=s.docs.map(d=>d.data());if(c==='users'&&!s.metadata.fromCache)ready=true;refresh()},()=>{ready=true;refresh()}));
+['users','clients','ops','deps','pays','msgs','sal','insc','fact','bilans','pubs'].forEach(c=>onSnapshot(collection(fdb,c),{includeMetadataChanges:true},s=>{S[c]=s.docs.map(d=>d.data());PEND[c]=s.docs.filter(d=>d.metadata&&d.metadata.hasPendingWrites).map(d=>d.data());if(c==='users'&&!s.metadata.fromCache)ready=true;refresh()},()=>{ready=true;refresh()}));
 onSnapshot(doc(fdb,'cfg','main'),s=>{if(s.exists())S.cfg={...S.cfg,...s.data()};refresh()});
 setTimeout(()=>{ready=true;refresh()},4000);
 if('serviceWorker' in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
@@ -79,14 +80,14 @@ function render(){pending=false;if(tab==='msg'&&me()&&$('#chat')&&$('#chat').dat
   if(!ready)return;
   if(!S.users.length)return setup();
   if(!me())return loginV();
-  if(sup()&&!['sup','msg','plus','prof','prof1','pay1'].includes(tab))tab='sup';
-  if(!own()&&['reg','insc','insc1','rap'].includes(tab))tab=sup()?'sup':'jour';
+  if(sup()&&!['sup','msg','plus','prof','prof1','pay1','sync'].includes(tab))tab='sup';
+  if(!own()&&['reg','insc','insc1','rap','pub'].includes(tab))tab=sup()?'sup':'jour';
   if(me().role!=='ouvrier'&&['decl','mrap'].includes(tab))tab=sup()?'sup':'jour';
   if(me().role==='ouvrier'&&tab==='sup')tab='jour';
   const T=sup()?[['sup','Supervision'],['msg','Messages'],['plus','Plus']]:[['jour','Aujourd’hui'],['op','Opération'],['cab','Cabine'],['msg','Messages'],['plus','Plus']];
-  $('#app').innerHTML=`<header>${logo('')}<div class="t"><b>${h(S.cfg.nom)}</b><small>${h(me().nom)} · ${me().role} · <span class="dot">${navigator.onLine?'● en ligne':'● hors ligne, synchro au retour du réseau'}</span></small></div>${av(me(),'s')}<button class="sec sm" style="color:#fff;border-color:#fff" data-a="out">Quitter</button></header><main id="m"></main>
-  <nav>${T.map(t=>`<button class="${(['clients','dep','prof','prof1','reg','insc','insc1','fac','fac1','rap','pay1','decl','mrap'].concat(own()?['sup']:[]).includes(tab)?'plus':tab)===t[0]?'on':''}" data-a="tab" data-p="${t[0]}">${t[1]}</button>`).join('')}</nav>`;
-  ({jour:vJour2,op:vOp,cab:vCab,msg:vMsg,plus:vPlus,prof:vProf,prof1:vProf1,clients:vCli,dep:vDep,reg:vReg,insc:vInsc,insc1:vInsc1,fac:vFac,fac1:vFac1,rap:vRap,pay1:vPay1,sup:vSup2,decl:vDecl,mrap:vMrap}[tab]||vJour)()}
+  $('#app').innerHTML=`<header>${logo('')}<div class="t"><b>${h(S.cfg.nom)}</b><small>${h(me().nom)} · ${me().role} · <span class="dot" data-a="tab" data-p="sync" style="cursor:pointer;text-decoration:underline dotted">${navigator.onLine?'● en ligne':'● hors ligne'}${pendN()?' · '+pendN()+' en attente':''}</span></small></div>${av(me(),'s')}<button class="sec sm" style="color:#fff;border-color:#fff" data-a="out">Quitter</button></header><main id="m"></main>
+  <nav>${T.map(t=>`<button class="${(['clients','dep','prof','prof1','reg','insc','insc1','fac','fac1','rap','pay1','decl','mrap','sync','pub'].concat(own()?['sup']:[]).includes(tab)?'plus':tab)===t[0]?'on':''}" data-a="tab" data-p="${t[0]}">${t[1]}</button>`).join('')}</nav>`;
+  ({jour:vJour2,op:vOp,cab:vCab,msg:vMsg,plus:vPlus,prof:vProf,prof1:vProf1,clients:vCli,dep:vDep,reg:vReg,insc:vInsc,insc1:vInsc1,fac:vFac,fac1:vFac1,rap:vRap,pay1:vPay1,sup:vSup2,decl:vDecl,mrap:vMrap2,sync:vSync,pub:vPub}[tab]||vJour)()}
 function setup(){$('#app').innerHTML=`<div class="login">${logo('big')}<div class="card"><h2>Bienvenue</h2><p>Créez le compte du patron. Il voit tout et ajoute les ouvriers.</p>
   <label>Nom du commerce</label><input id="cn" value="${h(S.cfg.nom)}"><label>Devise (FC, FCFA, $…)</label><input id="dv" value="${h(S.cfg.devise)}">
   <label>Votre nom</label><input id="un"><label>Code PIN (4 chiffres minimum)</label><input id="up" type="password" inputmode="numeric">
@@ -155,8 +156,9 @@ function vPlus(){const ok=/^https?:\/\//.test(S.cfg.site||''),np=S.insc.filter(x
   sec=(tt,L)=>`<div class="card"><h3>${tt}</h3>${L.map(l=>`<p style="margin:8px 0"><button class="sec w" data-a="tab" data-p="${l[0]}">${l[1]}</button></p>`).join('')}</div>`;
   let html='';
   if(sup())html=sec('Équipe',[['prof','Équipe et profils']]);
-  else if(own())html=sec('Gestion',[['clients','Clients'],['dep','Dépenses'],['fac','Factures'],['insc','Inscriptions ('+np+' en attente)']])+sec('Contrôle',[['sup','Supervision (contrôle)'],['rap','Rapports par ouvrier']])+sec('Équipe et réglages',[['prof','Équipe et profils'],['reg','Réglages']]);
+  else if(own())html=sec('Gestion',[['clients','Clients'],['dep','Dépenses'],['fac','Factures'],['insc','Inscriptions ('+np+' en attente)'],['pub','Publier sur le site']])+sec('Contrôle',[['sup','Supervision (contrôle)'],['rap','Rapports par ouvrier']])+sec('Équipe et réglages',[['prof','Équipe et profils'],['reg','Réglages']]);
   else html=sec('Mon travail',[['decl','Écrire mes totaux du jour'],['mrap','Mes rapports passés']])+sec('Gestion',[['clients','Clients'],['dep','Dépenses'],['fac','Factures']])+sec('Équipe',[['prof','Équipe et profils']]);
+  html+=sec('Synchronisation',[['sync','Données et synchronisation'+(pendN()?' ('+pendN()+' en attente)':'')]]);
   $('#m').innerHTML=html+(ok?`<p><a href="${h(S.cfg.site)}" target="_blank" rel="noopener" style="display:block;text-align:center;padding:12px;border-radius:9px;background:var(--gold);color:#fff;font-weight:700;text-decoration:none">Consultez notre site web</a></p>`:'')}
 function vMsg(){const ch=[['','Tous'],...S.users.filter(u=>u.id!==sid).map(u=>[u.id,u.nom])];
   $('#m').innerHTML=`<div class="chips">${ch.map(c=>`<button class="chip ${CV===c[0]?'on':''}" data-a="conv" data-p="${c[0]}">${h(c[1])}</button>`).join('')}</div><div id="chat" data-cv="${CV}">${chatHTML()}</div>
@@ -181,7 +183,7 @@ function vSup(){if(!(own()||sup()))return vJour();if(!SDT)SDT=today();if(SW&&!S.
 let SWO=true;
 function swPicker(ou,inP,rc,su){
   const info=u=>{const x=S.ops.filter(o=>o.user===u.id&&inP(o)),D=bil('decl',u.id,SDT),C=bil('ctrl',u.id,SDT),a=appTot(u.id,SDT);let b='',r=1;
-    if(SP==='jour'){if(C){const ec=C.argent!==a.a||C.travaux!==a.t||C.appareils!==a.p;b=ec?'<span class="sb ko">Contrôlé · écart détecté</span>':'<span class="sb ok">Contrôlé · aucun écart</span>';r=2}
+    if(SP==='jour'){if(C){const ec=ecartCtrl(C);b=ec?'<span class="sb ko">Contrôlé · écart détecté</span>':'<span class="sb ok">Contrôlé · aucun écart</span>';r=2}
       else if(D){b='<span class="sb wa">Déclaré · à contrôler</span>';r=0}else b='<span class="sb mu">Non déclaré</span>'}
     return{u,r,b,sub:x.filter(o=>o.ent==='Bureautique').length+' travaux · '+x.filter(o=>o.ent==='Cabine').length+' appareils · reçu '+money(su(x,rc))}},
   L=ou.map(info).sort((a,b)=>a.r-b.r||a.u.nom.localeCompare(b.u.nom,'fr')),
@@ -197,7 +199,7 @@ function swPicker(ou,inP,rc,su){
 const bil=(k,u,d)=>S.bilans.find(b=>b.id===k+'_'+u+'_'+d);
 function appTot(u,d){const x=S.ops.filter(o=>o.user===u&&o.date===d);return{a:x.reduce((s,o)=>s+Math.min(o.paye,mt(o)),0)+S.pays.filter(q=>q.user===u&&q.date===d).reduce((s,q)=>s+q.montant,0),t:x.filter(o=>o.ent==='Bureautique').length,p:x.filter(o=>o.ent==='Cabine').length}}
 let DD='';
-function vJour2(){vJour();if(me()&&me().role==='ouvrier'){const d=bil('decl',sid,today());$('#m').insertAdjacentHTML('afterbegin',`<div class="card"><h3>Fin de journée</h3><p style="margin:0 0 8px;font-size:.92rem">${d?'<span class="pos"><b>Vos totaux d’aujourd’hui sont enregistrés.</b></span> Vous pouvez les corriger tant que le superviseur n’a pas fait son contrôle.':'Écrivez ici l’argent que vous avez et le travail que vous avez fourni.'}</p><button class="gold w" data-a="tab" data-p="decl">Écrire mes totaux du jour</button></div>`)}}
+function vJour2(){vJour();if(own())$('#m').insertAdjacentHTML('beforeend','<div class="card"><h3>Rapport à toute l’équipe</h3><p style="margin:0 0 8px;font-size:.9rem;color:var(--mut)">Envoie dans Messages le résumé du jour affiché (sans les gains).</p><button class="gold w" data-a="sendrepj">Envoyer le rapport du jour à tous</button></div>');if(me()&&me().role==='ouvrier'){const d=bil('decl',sid,today());$('#m').insertAdjacentHTML('afterbegin',`<div class="card"><h3>Fin de journée</h3><p style="margin:0 0 8px;font-size:.92rem">${d?'<span class="pos"><b>Vos totaux d’aujourd’hui sont enregistrés.</b></span> Vous pouvez les corriger tant que le superviseur n’a pas fait son contrôle.':'Écrivez ici l’argent que vous avez et le travail que vous avez fourni.'}</p><button class="gold w" data-a="tab" data-p="decl">Écrire mes totaux du jour</button></div>`)}}
 function vDecl(){if(!DD)DD=today();const old=bil('decl',sid,DD),lock=!!bil('ctrl',sid,DD),L=S.bilans.filter(b=>b.kind==='decl'&&b.user===sid).sort((a,b)=>b.date.localeCompare(a.date)).slice(0,7);
   $('#m').innerHTML=`<div class="card"><h2>Mes totaux du jour</h2><p style="color:var(--mut);font-size:.9rem">Écrivez l’argent que vous avez et le travail que vous avez fourni. Soyez exact : le superviseur fait son propre contrôle.</p><label>Date</label><input type="date" id="dd" value="${DD}" data-c="dd">${lock?'<p class="neg"><b>Cette journée est déjà contrôlée : vous ne pouvez plus la modifier.</b></p>':''}${numf('dg_a','Argent total que j’ai en caisse ('+S.cfg.devise+')',old?old.argent:'')}${numf('dg_t','Nombre de travaux effectués (bureautique)',old?old.travaux:'')}${numf('dg_p','Nombre d’appareils reçus à la cabine',old?old.appareils:'')}<label>Remarque</label><input id="dg_n" value="${h(old?old.note:'')}"><p><button class="gold w" data-a="savedecl" ${lock?'disabled':''}>Enregistrer mes totaux</button></p></div>
   <div class="card"><h3>Mes dernières déclarations</h3>${L.length?L.map(b=>`<div class="row"><span>${b.date}<small>${b.travaux} travaux · ${b.appareils} appareils</small></span><b>${money(b.argent)}${bil('ctrl',sid,b.date)?'<small>contrôlée</small>':''}</b></div>`).join(''):'<div class="empty">Aucune déclaration.</div>'}</div>`}
@@ -205,13 +207,32 @@ const perOk=o=>SP==='gen'||(SP==='mois'?o.date.slice(0,7)===SDT.slice(0,7):o.dat
 function supOps(){const L=S.ops.filter(o=>o.user===SW&&perOk(o)).sort((a,b)=>b.t-a.t).slice(0,60);
   return `<div class="card"><h3>Opérations enregistrées par ${h(user(SW))} (${L.length})</h3>${L.length?L.map(o=>`<div class="row" style="border-left-color:var(--${o.ent})"><div><b>${h(o.desc)}</b> ${tg(o.ent)}<small>${o.date} ${hr(o.t)} · ${h(o.cn||cli(o.client))}${o.jeton?' · jeton '+h(o.jeton):''}</small></div><div class="r"><b>${money(mt(o))}</b><small>reçu ${money(Math.min(o.paye,mt(o)))}</small></div></div>`).join(''):'<div class="empty">Aucune opération.</div>'}</div>`}
 function vSup2(){vSup();if(own()||sup())$('#m').insertAdjacentHTML('beforeend',supCtrl()+(SW?supOps():''))}
-function supCtrl(){const sg=e=>(e>0?'+':'')+e,cmp=(lab,a,d,c,fm)=>{const e=c==null?null:c-a;return`<div class="row"><span><b>${lab}</b><small>Application : ${fm(a)} · Ouvrier : ${d==null?'—':fm(d)} · Superviseur : ${c==null?'—':fm(c)}</small></span><b class="${e==null?'':e===0?'pos':'neg'}">${e==null?'—':e===0?'Aucun écart':(e>0?'+':'')+fm(e)}</b></div>`},
+const TYP=[['piles','Piles','kg_pi'],['tel','Téléphones','kg_te'],['radio','Radios','kg_ra'],['power','Power','kg_po']];
+const typeKey=o=>{const s=(o.app||'').toLowerCase();return s.includes('pile')?'piles':/t[ée]l[ée]phone|phone/.test(s)?'tel':s.includes('radio')?'radio':s.includes('power')?'power':'autre'};
+function appCab(w){const r={piles:0,tel:0,radio:0,power:0,autre:0};S.ops.filter(o=>o.user===w&&inCab(o)).forEach(o=>r[typeKey(o)]++);return r}
+function ecartCtrl(C){if(!C)return false;const a=appTot(C.worker,C.date),c=appCab(C.worker);return C.argent!==a.a||(C.piles!=null&&TYP.some(x=>(C[x[0]]||0)!==c[x[0]]))||(C.nonApp||0)>0||(C.nonOps||0)>0}
+function supCtrl(){const sg=e=>(e>0?'+':'')+e,
+  cmp=(lab,a,c,fm,d)=>{const e=c==null?null:c-a;return`<div class="row"><span><b>${lab}</b><small>Application : ${fm(a)}${d===undefined?'':' · Ouvrier : '+(d==null?'—':fm(d))} · Superviseur : ${c==null?'—':fm(c)}</small></span><b class="${e==null?'':e===0?'pos':'neg'}">${e==null?'—':e===0?'Aucun écart':sg(e)+(fm===money?' '+S.cfg.devise:'')}</b></div>`},
   rec=S.bilans.filter(b=>b.kind==='ctrl'&&(!SW||b.worker===SW)).sort((a,b)=>b.date.localeCompare(a.date)||b.t-a.t).slice(0,15),
-  list=`<div class="card"><h3>Contrôles récents${SW?' · '+h(user(SW)):''}</h3>${rec.length?rec.map(c=>{const A=appTot(c.worker,c.date),e=c.argent-A.a;return`<div class="row"><span>${h(user(c.worker))}<small>${c.date} · travaux ${sg(c.travaux-A.t)} · appareils ${sg(c.appareils-A.p)}</small></span><b class="${e===0?'pos':'neg'}">${e===0?'Aucun écart':(e>0?'+':'')+money(e)}</b></div>`}).join(''):'<div class="empty">Aucun contrôle enregistré.</div>'}</div>`;
+  list=`<div class="card"><h3>Contrôles récents${SW?' · '+h(user(SW)):''}</h3>${rec.length?rec.map(c=>{const A=appTot(c.worker,c.date),e=c.argent-A.a,bad=ecartCtrl(c);return`<div class="row"><span>${h(user(c.worker))}<small>${c.date} · ${c.piles!=null?(c.nonApp||0)+' appareil(s) et '+(c.nonOps||0)+' opération(s) non enregistrés':'ancien contrôle'}</small></span><b class="${bad?'neg':'pos'}">${e!==0?sg(e)+' '+S.cfg.devise:bad?'À vérifier':'Aucun écart'}</b></div>`}).join(''):'<div class="empty">Aucun contrôle enregistré.</div>'}</div>`;
   if(!SW||SP!=='jour')return `<div class="card"><h3>Contrôle du superviseur</h3><p>Pour saisir ce que vous avez trouvé, choisissez <b>un ouvrier</b> dans la liste ci-dessus et la période <b>Jour</b>.</p></div>`+list;
-  const A=appTot(SW,SDT),D=bil('decl',SW,SDT),C=bil('ctrl',SW,SDT),
-  form=sup()?`<h3 style="margin-top:14px">Ce que j’ai trouvé</h3>${numf('kg_a','Argent trouvé en caisse ('+S.cfg.devise+')',C?C.argent:'')}${numf('kg_t','Travaux constatés (bureautique)',C?C.travaux:'')}${numf('kg_p','Appareils reçus constatés (cabine)',C?C.appareils:'')}<label>Remarque</label><input id="kg_n" value="${h(C?C.note:'')}"><p><button class="gold w" data-a="savectrl">Enregistrer mon contrôle</button></p>`:'';
-  return `<div class="card"><h3>Contrôle · ${h(user(SW))} · ${SDT}</h3>${cmp('Argent',A.a,D?D.argent:null,C?C.argent:null,money)}${cmp('Travaux (bureautique)',A.t,D?D.travaux:null,C?C.travaux:null,String)}${cmp('Appareils reçus (cabine)',A.p,D?D.appareils:null,C?C.appareils:null,String)}<small style="color:var(--mut)">Écart = ce que le superviseur a trouvé − ce qui est enregistré dans l’application.</small>${form}</div>`+list}
+  const A=appTot(SW,SDT),D=bil('decl',SW,SDT),C=bil('ctrl',SW,SDT),cab=appCab(SW),Hd=s=>`<h3 style="margin:16px 0 4px;color:var(--navy)">${s}</h3>`;
+  let body;
+  if(C){body=cmp('Montant en main',A.a,C.argent,money,D?D.argent:null)
+    +(C.piles!=null?TYP.map(x=>cmp(x[1]+' rencontrés',cab[x[0]],C[x[0]]||0,String)).join('')
+     +`<div class="row"><span><b>Appareils non enregistrés dans l’application</b><small>Comptés par le superviseur</small></span><b class="${(C.nonApp||0)>0?'neg':'pos'}">${C.nonApp||0}</b></div><div class="row"><span><b>Opérations bureautique non enregistrées</b><small>Enregistrées dans l’application : ${A.t}</small></span><b class="${(C.nonOps||0)>0?'neg':'pos'}">${C.nonOps||0}</b></div>`
+     :'<p style="color:var(--mut);font-size:.9rem">Ancien contrôle : seuls le montant en main et les comptages simples ont été saisis.</p>')
+    +(C.note?`<p style="margin:10px 0"><b>Remarque :</b> ${h(C.note)}</p>`:'')
+    +(C.sigSup?Hd('Signature du superviseur')+`<img class="sgi" src="${C.sigSup}" alt="Signature du superviseur"><small style="color:var(--mut)">${h(user(C.sup))} · ${new Date(C.t).toLocaleString('fr-FR')}</small>`:'')
+    +(C.piles!=null?Hd('Signature de l’ouvrier')+(C.refus?'<p class="neg"><b>L’ouvrier a refusé de signer.</b></p>':C.sigOuv?`<img class="sgi" src="${C.sigOuv}" alt="Signature de l’ouvrier">`:''):'')
+    +(own()?`<p><button class="del w" data-a="delctrl" data-p="${C.id}">Annuler ce contrôle</button></p>`:'')}
+  else if(sup()){body=Hd('Ce que j’ai trouvé')+numf('kg_a','Montant en main ('+S.cfg.devise+')')+numf('kg_pi','Nombre de piles rencontrées')+numf('kg_te','Nombre de téléphones')+numf('kg_ra','Nombre de radios')+numf('kg_po','Nombre de power')
+    +numf('kg_na','Nombre d’appareils non enregistrés dans l’application')+numf('kg_no','Nombre d’opérations bureautique non enregistrées')+'<label>Remarque</label><input id="kg_n">'
+    +Hd('Signature du superviseur')+padHTML('sg_cs')+Hd('Signature de l’ouvrier (il reconnaît le montant en main)')+padHTML('sg_co')
+    +'<label style="display:flex;gap:10px;align-items:center;color:var(--ink);margin-top:12px"><input type="checkbox" id="kg_ref" style="width:20px;height:20px;margin:0"> L’ouvrier refuse de signer</label>'
+    +'<p><button class="gold w" data-a="savectrl">Enregistrer et signer le contrôle</button></p>'}
+  else body='<p style="color:var(--mut)">Le superviseur n’a pas encore fait son contrôle pour ce jour.</p>';
+  return `<div class="card"><h3>Contrôle · ${h(user(SW))} · ${SDT}</h3>${body}<small style="color:var(--mut)">Écart = ce que le superviseur a trouvé − ce qui est enregistré dans l’application.</small></div>`+list}
 let MP='jour',MDT='';
 function vMrap(){if(!MDT)MDT=today();const inP=o=>MP==='gen'||(MP==='mois'?o.date.slice(0,7)===MDT.slice(0,7):o.date===MDT),X=S.ops.filter(o=>o.user===sid&&inP(o)),rc=o=>Math.min(o.paye,mt(o)),su=(a,k)=>a.reduce((s,o)=>s+k(o),0),
   per=MP==='gen'?'général':MP==='mois'?'du mois ('+MDT.slice(0,7)+')':'du jour ('+MDT+')',byDay={};
@@ -223,6 +244,25 @@ function vMrap(){if(!MDT)MDT=today();const inP=o=>MP==='gen'||(MP==='mois'?o.dat
   ${MP==='jour'?`<div class="card"><h3>Mes opérations du jour</h3>${X.length?X.slice().sort((a,b)=>b.t-a.t).map(o=>`<div class="row" style="border-left-color:var(--${o.ent})"><div><b>${h(o.desc)}</b> ${tg(o.ent)}<small>${hr(o.t)} · ${h(o.cn||cli(o.client))}</small></div><div class="r"><b>${money(mt(o))}</b><small>reçu ${money(rc(o))}</small></div></div>`).join(''):'<div class="empty">Aucune opération ce jour.</div>'}</div>`
   :`<div class="card"><h3>Historique par jour</h3>${days.length?days.map(d=>`<div class="row"><span>${d}<small>${byDay[d].n} opération(s)</small></span><div class="r"><b>${money(byDay[d].m)}</b><small>reçu ${money(byDay[d].r)}</small><button class="sec sm" data-a="mday" data-p="${d}">Voir</button></div></div>`).join(''):'<div class="empty">Aucune opération.</div>'}</div>`}
   <div class="card"><h3>Mes totaux déclarés</h3>${dc.length?dc.map(b=>`<div class="row"><span>${b.date}<small>${b.travaux} travaux · ${b.appareils} appareils</small></span><b>${money(b.argent)}</b></div>`).join(''):'<div class="empty">Aucune déclaration sur cette période.</div>'}</div>`}
+const EXP=['ops','deps','clients','pays','msgs','insc','fact','bilans','pubs'];
+const pendN=()=>Object.values(PEND).reduce((s,a)=>s+a.length,0);
+function dlFile(name,txt,type){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([txt],{type}));a.download=name;document.body.appendChild(a);a.click();a.remove()}
+function vSync(){const N=pendN(),COL={ops:'Opérations',deps:'Dépenses',clients:'Clients',pays:'Paiements de dettes',msgs:'Messages',insc:'Inscriptions',fact:'Factures',bilans:'Contrôles et déclarations',pubs:'Publications du site',sal:'Salaires',users:'Comptes'},
+  lab=(c,o)=>c==='ops'?o.desc:c==='deps'?o.lib:c==='clients'?o.nom:c==='msgs'?(o.texte||o.fn||'message'):c==='insc'?(o.prenom+' '+o.nom):c==='fact'?(o.num||o.cn||'facture'):c==='pays'?'paiement '+money(o.montant):c==='bilans'?(o.kind==='ctrl'?'contrôle ':'déclaration ')+o.date:c==='pubs'?(o.texte||'publication'):'élément',
+  det=Object.keys(PEND).filter(c=>(PEND[c]||[]).length).map(c=>`<div class="card"><h3>${COL[c]||c} · ${PEND[c].length} en attente</h3>${PEND[c].slice(0,12).map(o=>`<div class="row"><span>${h(String(lab(c,o)).slice(0,60))}<small>${o.date||(o.t?new Date(o.t).toLocaleDateString('fr-FR'):'')}</small></span><span class="tag" style="background:var(--gold)">en attente</span></div>`).join('')}${PEND[c].length>12?`<small>… et ${PEND[c].length-12} autre(s)</small>`:''}</div>`).join('');
+  $('#m').innerHTML=`<div class="card"><h2>Données et synchronisation</h2><div class="grid" style="margin:0"><div class="stat"><span>Connexion</span><b class="${navigator.onLine?'pos':'neg'}">${navigator.onLine?'En ligne':'Hors ligne'}</b></div><div class="stat"><span>En attente d’envoi</span><b class="${N?'neg':'pos'}">${N}</b></div></div>
+  <p style="font-size:.9rem;color:var(--mut)">${N?'Ces données sont enregistrées sur ce téléphone. Elles partent toutes seules vers votre patron dès que le réseau revient.':'Tout est synchronisé : rien n’attend sur ce téléphone.'}</p>
+  <p><button class="sec w" data-a="refreshsync">Actualiser</button></p>
+  <p><button class="gold w" data-a="exportsync" ${N?'':'disabled'}>Télécharger les données non synchronisées</button></p>
+  <p style="font-size:.85rem;color:var(--mut)">Le fichier peut être envoyé au patron (WhatsApp, Bluetooth, clé USB). Les pièces jointes ne sont pas incluses.</p></div>
+  ${own()?`<div class="card"><h3>Importer des données d’un ouvrier</h3><p style="font-size:.9rem;color:var(--mut)">Choisissez le fichier reçu. Seuls les éléments absents de la base sont ajoutés : rien n’est écrasé.</p><input type="file" accept=".json,application/json" data-c="impsync"></div>`:''}${det}`}
+function vPub(){const L=S.pubs.slice().sort((a,b)=>b.t-a.t).slice(0,30);
+  $('#m').innerHTML=`<div class="card"><h2>Publier sur le site</h2><p style="color:var(--mut);font-size:.9rem">Ce que vous publiez ici apparaît dans la section « Actualités » de votre site web.</p>
+  <label>Message</label><textarea id="pbt" rows="4" maxlength="1500" style="width:100%;font:inherit;padding:11px;border:1px solid var(--line);border-radius:9px"></textarea>
+  <label>Photo (facultatif)</label><input type="file" id="pbf" accept="image/*"><label>Vidéo (facultatif, 3 Mo maximum)</label><input type="file" id="pbv" accept="video/*"><label>Ou lien d’une vidéo (YouTube, Facebook…)</label><input id="pbl" type="url" placeholder="https://…">
+  <p><button class="gold w" id="pbb" data-a="publish">Publier sur le site</button></p></div>
+  <div class="card"><h3>Déjà publié (${L.length})</h3>${L.length?L.map(p=>`<div class="row"><span>${h((p.texte||'(sans message)').slice(0,70))}<small>${p.date} ${p.photo?'· photo ':''}${p.vfc?'· vidéo ':''}${p.lien?'· lien ':''}</small></span><button class="del sm" data-a="delpub" data-p="${p.id}">Retirer</button></div>`).join(''):'<div class="empty">Rien n’est encore publié.</div>'}</div>`}
+function vMrap2(){vMrap();const c=$('#m').children[0];if(c)c.insertAdjacentHTML('afterend','<div class="card"><button class="gold w" data-a="sendrep">Envoyer mon rapport à tous</button><small style="color:var(--mut)">Le résumé de la période choisie est envoyé dans Messages.</small></div>')}
 function vCab(){const l=S.ops.filter(o=>o.ent==='Cabine'&&(o.date===today()||o.paye<mt(o)||o.rem===false)).filter(o=>!cq||String(o.jeton||'').toLowerCase().includes(cq)||o.desc.toLowerCase().includes(cq)).sort((a,b)=>b.t-a.t),imp=l.filter(o=>o.paye<mt(o));
   $('#m').innerHTML=`${cabSum(S.ops.filter(inCab),'Appareils restants à la cabine')}<div class="card"><h2>Cabine : nouvelle charge</h2><label style="margin-top:0">Appareil</label><select id="ca">${APPS().map(a=>`<option>${h(a)}</option>`).join('')}</select><label>N° du jeton</label><input id="cj" inputmode="numeric"><label>Nom du client *</label><input id="ccn"><label>Avec chargeur ? *</label><select id="cch" data-c="cch"><option value="">— Choisir —</option><option>Oui</option><option>Non</option></select><div id="chb" style="display:none"><label>Marque du chargeur *</label><input id="ccm"></div><label>Montant à payer</label><input id="cm" type="number" inputmode="decimal"><label>A-t-il payé ?</label><select id="cp"><option>Non</option><option>Oui</option></select><p><button class="gold w" data-a="addcab2">Enregistrer la charge</button></p></div>
   <div class="card"><h3>Chercher un jeton</h3><input id="cq" value="${h(cq)}" data-c="cq" placeholder="N° du jeton"><div class="calc">Non payés : <b class="${imp.length?'neg':''}">${imp.length}</b> · à encaisser : <b>${money(imp.reduce((s,o)=>s+mt(o)-o.paye,0))}</b></div></div>
@@ -331,11 +371,30 @@ const A={
   delmsg(id){if(!confirm('Supprimer ce message ?'))return;const m=S.msgs.find(x=>x.id===id);if(m&&m.fc)for(let i=0;i<m.fc;i++)rm('fichiers',id+'_'+i);rm('msgs',id)},
  enc(id){const o=S.ops.find(x=>x.id===id);if(o)put('ops',{...o,paye:mt(o),payeT:Date.now(),payePar:sid})},
  savedecl(){const a=($('#dg_a').value||'').trim(),tr=($('#dg_t').value||'').trim(),pp=($('#dg_p').value||'').trim();if(bil('ctrl',sid,DD))return alert('Cette journée est déjà contrôlée : elle ne peut plus être modifiée.');if(a===''||tr===''||pp==='')return alert('Écrivez l’argent, le nombre de travaux et le nombre d’appareils (0 s’il n’y en a pas).');put('bilans',{id:'decl_'+sid+'_'+DD,kind:'decl',user:sid,date:DD,argent:n(a),travaux:n(tr),appareils:n(pp),note:($('#dg_n').value||'').trim(),t:Date.now()});alert('Vos totaux sont enregistrés.');render()},
- savectrl(){if(!sup()||!SW||SP!=='jour')return;const g=i=>(($('#'+i)||{}).value||'').trim();if(g('kg_a')===''||g('kg_t')===''||g('kg_p')==='')return alert('Écrivez l’argent trouvé, les travaux constatés et les appareils comptés (0 s’il n’y en a pas).');put('bilans',{id:'ctrl_'+SW+'_'+SDT,kind:'ctrl',worker:SW,date:SDT,argent:n(g('kg_a')),travaux:n(g('kg_t')),appareils:n(g('kg_p')),note:g('kg_n'),sup:sid,t:Date.now()});alert('Votre contrôle est enregistré.');render()},
- mpr(p){MP=p;render()},
- mday(d){MP='jour';MDT=d;render()},
- remis(id){const o=S.ops.find(x=>x.id===id);if(!o)return;if(o.paye<mt(o)&&!confirm('Cet appareil n’est pas entièrement payé. Le remettre quand même au client ?'))return;put('ops',{...o,rem:true,remT:Date.now(),remPar:sid})},
- sp(p){SP=p;render()},
+  savectrl(){if(!sup()||!SW||SP!=='jour')return;if(bil('ctrl',SW,SDT))return alert('Ce contrôle est déjà enregistré.');const g=i=>(($('#'+i)||{}).value||'').trim();
+  if(['kg_a','kg_pi','kg_te','kg_ra','kg_po','kg_na','kg_no'].some(i=>g(i)===''))return alert('Remplissez le montant en main et tous les nombres (0 s’il n’y en a pas).');
+  if(!padOK('sg_cs'))return alert('Le superviseur doit signer avec le doigt dans le cadre.');
+  const ref=!!($('#kg_ref')&&$('#kg_ref').checked);if(!ref&&!padOK('sg_co'))return alert('L’ouvrier doit signer avec le doigt, ou cochez « L’ouvrier refuse de signer ».');
+  put('bilans',{id:'ctrl_'+SW+'_'+SDT,kind:'ctrl',worker:SW,date:SDT,argent:n(g('kg_a')),piles:n(g('kg_pi')),tel:n(g('kg_te')),radio:n(g('kg_ra')),power:n(g('kg_po')),nonApp:n(g('kg_na')),nonOps:n(g('kg_no')),note:g('kg_n'),sigSup:padData('sg_cs'),sigOuv:ref?'':padData('sg_co'),refus:ref,sup:sid,t:Date.now()});alert('Contrôle enregistré et signé.');render()},
+ delctrl(id){if(own()&&confirm('Annuler ce contrôle ? Il pourra être refait.'))rm('bilans',id)},
+ sendrep(){const inP=o=>MP==='gen'||(MP==='mois'?o.date.slice(0,7)===MDT.slice(0,7):o.date===MDT),X=S.ops.filter(o=>o.user===sid&&inP(o)),rc=o=>Math.min(o.paye,mt(o)),su=(a,k)=>a.reduce((s,o)=>s+k(o),0),per=MP==='gen'?'général':MP==='mois'?'mois '+MDT.slice(0,7):'jour '+MDT,
+  tx='📋 Rapport de '+me().nom+' ('+per+') : '+X.length+' opération(s) · total '+money(su(X,mt))+' · encaissé '+money(su(X,rc))+' · reste '+money(su(X,mt)-su(X,rc))+' · bureautique '+X.filter(o=>o.ent==='Bureautique').length+' · appareils cabine '+X.filter(o=>o.ent==='Cabine').length;
+  if(!confirm('Envoyer ce rapport à tous ?\n\n'+tx))return;put('msgs',{id:uid(),t:Date.now(),user:sid,texte:tx,ann:own(),to:''});alert('Rapport envoyé à tous dans Messages.')},
+ sendrepj(){const X=S.ops.filter(o=>o.date===day),rc=o=>Math.min(o.paye,mt(o)),su=(a,k)=>a.reduce((s,o)=>s+k(o),0),c=e=>X.filter(o=>o.ent===e).length,
+  tx='📋 Rapport du jour '+day+' : '+X.length+' opération(s) · ventes '+money(su(X,mt))+' · encaissé '+money(su(X,rc))+' · Shop '+c('Shop')+' · Bureautique '+c('Bureautique')+' · Cabine '+c('Cabine');
+  if(!confirm('Envoyer ce rapport à tous ?\n\n'+tx))return;put('msgs',{id:uid(),t:Date.now(),user:sid,texte:tx,ann:true,to:''});alert('Rapport envoyé à tous dans Messages.')},
+ exportsync(){const items={};let k=0;EXP.forEach(c=>{if((PEND[c]||[]).length){items[c]=PEND[c];k+=PEND[c].length}});if(!k)return alert('Rien à exporter : tout est déjà synchronisé.');
+  dlFile('non-synchronise-'+me().nom.replace(/[^A-Za-z0-9]+/g,'-')+'-'+today()+'.json',JSON.stringify({app:'gestion-ljc',v:1,de:me().nom,t:Date.now(),items}),'application/json')},
+ refreshsync(){render()},
+ async publish(){const tx=(($('#pbt')||{}).value||'').trim(),f=$('#pbf').files[0],v=$('#pbv').files[0],lk=(($('#pbl')||{}).value||'').trim();
+  if(!tx&&!f&&!v&&!lk)return alert('Écrivez un message ou choisissez une photo ou une vidéo.');if(lk&&!/^https?:\/\//.test(lk))return alert('Le lien doit commencer par http:// ou https://');
+  if(v&&v.size>3*1024*1024)return alert('Vidéo trop lourde : 3 Mo maximum. Utilisez plutôt un lien (YouTube, Facebook…).');
+  const b=$('#pbb');b.disabled=true;b.textContent='Publication en cours…';const id=uid();let o={id,t:Date.now(),date:today(),texte:tx,photo:'',lien:lk,user:sid};
+  try{if(f){o.photo=await new Promise(r=>shrink(f,900,r));if(o.photo.length>900000)throw 0}
+   if(v){const url=await new Promise((r,j)=>{const fr=new FileReader();fr.onload=()=>r(fr.result);fr.onerror=j;fr.readAsDataURL(v)});if(url.length>4200000)throw 0;const CH=600000,nc=Math.ceil(url.length/CH);for(let i=0;i<nc;i++)put('pubfiles',{id:id+'_'+i,pub:id,i,d:url.slice(i*CH,(i+1)*CH)});o={...o,vfn:v.name,vft:v.type||'video/mp4',vfc:nc}}}
+  catch(x){b.disabled=false;b.textContent='Publier sur le site';return alert('Impossible de lire ce fichier (3 Mo maximum).')}
+  put('pubs',o);alert('Publié : l’actualité apparaît sur le site.');render()},
+ delpub(id){const p=S.pubs.find(x=>x.id===id);if(!p||!confirm('Retirer cette publication du site ?'))return;if(p.vfc)for(let i=0;i<p.vfc;i++)rm('pubfiles',id+'_'+i);rm('pubs',id)},
  pick(p){SW=p;SWO=false;render()},swo(){SWO=true;render()},
  openprof(id){vu=id;tab='prof1';render()},
   saveprof(id){const u=S.users.find(x=>x.id===id),v=i=>($('#'+i)||{}).value;put('users',{...u,embauche:v('pe')||'',salaire:n(v('ps')),naiss:v('pn')||'',adr:(v('pa')||'').trim(),tel:(v('pt')||'').trim(),bio:(v('pb')||'').trim()});alert('Enregistré.')},
@@ -367,9 +426,14 @@ const A={
   S.ops.slice().sort((a,b)=>a.t-b.t).forEach(o=>r.push([o.date,hr(o.t),o.ent,o.desc,cli(o.client),user(o.user),o.qte,o.pu,mt(o),co(o),mt(o)-co(o),o.paye,o.tp||'',o.mp||'',o.cn||'',o.bn||'',o.chg==='Oui'?(o.chm||'Oui'):(o.chg||'')]));
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+r.map(x=>x.map(q).join(';')).join('\n')],{type:'text/csv'}));a.download='operations-'+today()+'.csv';a.click()}
 };
-const C={role(el){const u=S.users.find(x=>x.id===el.dataset.u);if(u&&u.role!=='patron'&&u.role!==el.value&&confirm('Changer le rôle de '+u.nom+' en '+el.value+' ?'))put('users',{...u,role:el.value});else render()},mdt(el){MDT=el.value||today();vMrap()},dd(el){DD=el.value||today();vDecl()},sw(el){SW=el.value;vSup2()},sdt(el){SDT=el.value||today();vSup2()},cch(el){$('#chb').style.display=el.value==='Oui'?'block':'none'},mfile(el){const f=el.files[0];el.value='';if(f){sendMsg($('#mt').value.trim(),f);$('#mt').value='';$('#mic').textContent='🎤';$('#mic').dataset.a='mic'}},rd(el){RD=el.value||today();render()},rm(el){RM=el.value||today().slice(0,7);render()},iph(el){const f=el.files[0];if(!f)return;shrink(f,240,d=>{IPH=d;const i=$('#iph1');i.src=d;i.style.display='block'})},oe(el){OE=el.value;OT='';vOp()},ot(el){OT=el.value;vOp()},photo(el){const f=el.files[0];if(!f)return;const u=S.users.find(x=>x.id===el.dataset.u);shrink(f,200,d=>{put('users',{...u,photo:d});setTimeout(render,500)})},cq(el){cq=el.value.trim().toLowerCase();render()},day(el){day=el.value||today();render()},
+const C={impsync(el){const f=el.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{let d;try{d=JSON.parse(r.result)}catch(x){el.value='';return alert('Fichier illisible.')}
+  if(!d||d.app!=='gestion-ljc'||!d.items)return alert('Ce fichier n’est pas une sauvegarde de cette application.');let add=0,skip=0,bad=0;const L=c=>Array.isArray(d.items[c])?d.items[c].slice(0,3000):[],okid=o=>o&&typeof o==='object'&&typeof o.id==='string'&&o.id.length<=80;
+  EXP.forEach(c=>L(c).forEach(o=>{if(!okid(o))bad++;else if((S[c]||[]).some(x=>x.id===o.id))skip++;else add++}));
+  if(!add){el.value='';return alert('Rien à importer : '+skip+' élément(s) déjà présent(s)'+(bad?', '+bad+' invalide(s)':'')+'.')}
+  if(!confirm('Importer '+add+' élément(s) envoyés par '+(d.de||'un ouvrier')+' ? ('+skip+' déjà présent(s))')){el.value='';return}
+  EXP.forEach(c=>L(c).forEach(o=>{if(okid(o)&&!(S[c]||[]).some(x=>x.id===o.id))put(c,o)}));el.value='';alert(add+' élément(s) importé(s).')};r.readAsText(f)},role(el){const u=S.users.find(x=>x.id===el.dataset.u);if(u&&u.role!=='patron'&&u.role!==el.value&&confirm('Changer le rôle de '+u.nom+' en '+el.value+' ?'))put('users',{...u,role:el.value});else render()},mdt(el){MDT=el.value||today();vMrap2()},dd(el){DD=el.value||today();vDecl()},sw(el){SW=el.value;vSup2()},sdt(el){SDT=el.value||today();vSup2()},cch(el){$('#chb').style.display=el.value==='Oui'?'block':'none'},mfile(el){const f=el.files[0];el.value='';if(f){sendMsg($('#mt').value.trim(),f);$('#mt').value='';$('#mic').textContent='🎤';$('#mic').dataset.a='mic'}},rd(el){RD=el.value||today();render()},rm(el){RM=el.value||today().slice(0,7);render()},iph(el){const f=el.files[0];if(!f)return;shrink(f,240,d=>{IPH=d;const i=$('#iph1');i.src=d;i.style.display='block'})},oe(el){OE=el.value;OT='';vOp()},ot(el){OT=el.value;vOp()},photo(el){const f=el.files[0];if(!f)return;const u=S.users.find(x=>x.id===el.dataset.u);shrink(f,200,d=>{put('users',{...u,photo:d});setTimeout(render,500)})},cq(el){cq=el.value.trim().toLowerCase();render()},day(el){day=el.value||today();render()},
  logo(el){const f=el.files[0];if(!f)return;const im=new Image();im.onload=()=>{const k=Math.min(1,256/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=im.width*k;c.height=im.height*k;c.getContext('2d').drawImage(im,0,0,c.width,c.height);put('cfg',{id:'main',...S.cfg,logo:c.toDataURL('image/jpeg',.85)});alert('Logo enregistré.')};im.src=URL.createObjectURL(f)}};
-const LOCKED=['savedecl','savectrl','remis','addop','addcab2','adddep','addcli','adduser','sendtxt','confi','enc'],LK={};
+const LOCKED=['sendrep','sendrepj','publish','savedecl','savectrl','remis','addop','addcab2','adddep','addcli','adduser','sendtxt','confi','enc'],LK={};
 document.addEventListener('click',e=>{const b=e.target.closest('[data-a]');if(!b)return;const k=b.dataset.a;if(LOCKED.includes(k)&&Date.now()-(LK[k]||0)<900)return;CUR=k;try{A[k](b.dataset.p)}finally{CUR=''}});
 document.addEventListener('change',e=>{const f=e.target.dataset.c;if(f)C[f](e.target)});
 document.addEventListener('input',e=>{if(e.target.id==='swq'){const q=e.target.value.trim().toLowerCase();document.querySelectorAll('.wk[data-n]').forEach(b=>b.style.display=b.dataset.n.includes(q)?'':'none')}if(e.target.id==='oy')e.target.dataset.m=1;if(e.target.closest('.opf'))calc()});
